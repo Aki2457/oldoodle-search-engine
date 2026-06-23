@@ -19,6 +19,9 @@ permissions:
   contents: read
   packages: write
 
+env:
+  IMAGE_NAME: ghcr.io/aki2457/oldoodle-search-engine
+
 jobs:
   docker:
     runs-on: ubuntu-latest
@@ -43,7 +46,7 @@ jobs:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/oldoodle-search-engine:latest
-            ghcr.io/${{ github.repository_owner }}/oldoodle-search-engine:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
