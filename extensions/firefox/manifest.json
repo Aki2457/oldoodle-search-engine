@@ -3,6 +3,17 @@
   "name": "Oldoogle XP Homepage",
   "description": "Windows XP styled Oldoogle homepage and new tab page.",
   "version": "1.0.0",
+  "browser_action": {
+    "default_title": "Oldoodle Search",
+    "default_popup": "widget.html"
+  },
+  "icons": {
+    "32": "site-icon.svg"
+  },
+  "sidebar_action": {
+    "default_title": "Oldoodle Search",
+    "default_panel": "widget.html"
+  },
   "chrome_url_overrides": {
     "newtab": "index.html"
   },
@@ -11,7 +22,10 @@
   },
   "permissions": [
     "http://localhost:3000/*",
-    "http://127.0.0.1:3000/*"
+    "http://127.0.0.1:3000/*",
+    "http://43.133.207.10:30566/*",
+    "https://api.qrserver.com/*",
+    "storage"
   ],
   "browser_specific_settings": {
     "gecko": {

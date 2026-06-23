@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Oldoodle Toolbox</title>
+    <link rel="stylesheet" href="widget.css">
+  </head>
+  <body>
+    <main class="widget">
+      <header class="titlebar">
+        <span><b>e</b> Oldoodle Toolbox</span>
+        <span>_ [] X</span>
+      </header>
+
+      <nav class="tabs" aria-label="Widget tools">
+        <button type="button" class="is-active" data-tab="search">Search</button>
+        <button type="button" data-tab="timer">Timer</button>
+        <button type="button" data-tab="qr">QR</button>
+        <button type="button" data-tab="notes">Notes</button>
+        <button type="button" data-tab="speed">Speed</button>
+      </nav>
+
+      <section class="pane is-active" data-pane="search">
+        <form id="searchForm" class="stack">
+          <label>Endpoint <input id="endpoint" type="url" autocomplete="off"></label>
+          <label>Search <input id="query" autocomplete="off" autofocus placeholder="windows xp internet explorer"></label>
+          <button type="submit">Search</button>
+        </form>
+        <section class="stats"><span id="status">Ready</span><button id="openFull" type="button">Open Full</button></section>
+        <section id="results" class="results" aria-live="polite"></section>
+      </section>
+
+      <section class="pane" data-pane="timer">
+        <div class="timer-face" id="timerFace">05:00</div>
+        <div class="timer-grid">
+          <button type="button" data-minutes="1">1 min</button>
+          <button type="button" data-minutes="5">5 min</button>
+          <button type="button" data-minutes="15">15 min</button>
+          <button type="button" id="timerStart">Start</button>
+          <button type="button" id="timerPause">Pause</button>
+          <button type="button" id="timerReset">Reset</button>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="qr">
+        <form id="qrForm" class="stack">
+          <label>QR text or URL <textarea id="qrText" rows="4" placeholder="https://aki2457.github.io/"></textarea></label>
+          <button type="submit">Make QR</button>
+        </form>
+        <div class="qr-wrap"><img id="qrImage" alt="Generated QR code"></div>
+      </section>
+
+      <section class="pane" data-pane="notes">
+        <label class="stack">Scratch note <textarea id="notes" rows="8" placeholder="A tiny notepad for search ideas..."></textarea></label>
+        <button type="button" id="copyNote">Copy Note</button>
+      </section>
+
+      <section class="pane" data-pane="speed">
+        <button type="button" id="speedRun">Ping Search Engine</button>
+        <ol id="speedLog" class="speed-log"></ol>
+      </section>
+    </main>
+    <script src="widget.js"></script>
+  </body>
+</html>
