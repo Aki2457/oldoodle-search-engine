@@ -10,6 +10,7 @@ Oldoodle XP is a Windows XP / Internet Explorer styled search app with live resu
 - Public deploy/source repo: <https://github.com/Aki2457/oldoodle-search-engine>
 - Main private/source repo: <https://github.com/Aki2457/oldoogle-xp-search>
 - Latest release zip: <https://github.com/Aki2457/oldoogle-xp-search/releases/download/v1.0.1/Oldoodle_Release.zip>
+- Public wiki contents: <https://github.com/Aki2457/oldoodle-search-engine/tree/main/wiki>
 
 ## What It Includes
 
