@@ -74,17 +74,43 @@
         </div>
       </section>
 
-      <button id="codexPet" class="codex-pet" type="button" aria-label="Codex pet">
-        <span id="petBubble" class="pet-bubble" aria-live="polite">standing by</span>
-        <span class="pet-hanger" aria-hidden="true"></span>
-        <span class="pet-body" aria-hidden="true">
-          <span class="pet-screen"><span id="petFace">404</span></span>
-          <span class="pet-arm left"></span>
-          <span class="pet-arm right"></span>
-          <span class="pet-leg left"></span>
-          <span class="pet-leg right"></span>
-        </span>
-      </button>
+      <section id="codexPet" class="codex-pet" aria-label="404 pet">
+        <button id="petSprite" class="pet-sprite" type="button" aria-label="Talk to 404">
+          <span id="petBubble" class="pet-bubble" aria-live="polite">standing by</span>
+          <span class="pet-hanger" aria-hidden="true"></span>
+          <span class="pet-body" aria-hidden="true">
+            <span class="pet-screen"><span id="petFace">404</span></span>
+            <span class="pet-arm left"></span>
+            <span class="pet-arm right"></span>
+            <span class="pet-leg left"></span>
+            <span class="pet-leg right"></span>
+          </span>
+        </button>
+        <aside id="petPanel" class="pet-panel" aria-label="404 pet controls">
+          <header>
+            <strong>404</strong>
+            <span id="petMoodLabel">idle</span>
+          </header>
+          <div class="pet-stat">
+            <span>energy</span>
+            <meter id="petEnergy" min="0" max="100" value="72"></meter>
+          </div>
+          <div class="pet-stat">
+            <span>focus</span>
+            <meter id="petFocus" min="0" max="100" value="64"></meter>
+          </div>
+          <div class="pet-stat">
+            <span>bond</span>
+            <meter id="petBond" min="0" max="100" value="58"></meter>
+          </div>
+          <div class="pet-actions" aria-label="Pet actions">
+            <button type="button" data-pet-action="snack">snack</button>
+            <button type="button" data-pet-action="nap">nap</button>
+            <button type="button" data-pet-action="play">play</button>
+            <button type="button" data-pet-action="debug">debug</button>
+          </div>
+        </aside>
+      </section>
 
       <nav id="startMenu" class="start-menu" aria-label="Start menu" aria-hidden="true">
         <div class="start-menu-header">
@@ -128,7 +154,7 @@
         <span class="quick">IE&nbsp; OE&nbsp; &gt;&gt;</span>
         <button class="task" type="button">Project IE6 WinXP</button>
         <button class="task active" type="button">Oldoogle - Microsoft Int...</button>
-        <button id="petToggle" class="task pet-toggle" type="button" aria-pressed="false">404 Pet: off</button>
+        <button id="petToggle" class="task pet-toggle" type="button" aria-pressed="true">404 Pet: on</button>
         <span class="tray">Internet | 11:41 PM</span>
       </footer>
     </main>

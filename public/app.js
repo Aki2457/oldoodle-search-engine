@@ -4,23 +4,91 @@ const statusBox = document.querySelector("#status");
 const resultsBox = document.querySelector("#results");
 const lucky = document.querySelector("#lucky");
 const pet = document.querySelector("#codexPet");
+const petSprite = document.querySelector("#petSprite");
 const petFace = document.querySelector("#petFace");
 const petBubble = document.querySelector("#petBubble");
 const petToggle = document.querySelector("#petToggle");
+const petMoodLabel = document.querySelector("#petMoodLabel");
+const petEnergy = document.querySelector("#petEnergy");
+const petFocus = document.querySelector("#petFocus");
+const petBond = document.querySelector("#petBond");
 const browserStatusText = document.querySelector("#browserStatusText");
 const startButton = document.querySelector("#startButton");
 const startMenu = document.querySelector("#startMenu");
 
 let activeEvents;
 let petTimer;
-if (localStorage.getItem("oldoolePetDefaultOffApplied") !== "true") {
-  localStorage.setItem("oldoolePetEnabled", "false");
-  localStorage.setItem("oldoolePetDefaultOffApplied", "true");
+if (localStorage.getItem("oldooleActualPetApplied") !== "true") {
+  localStorage.setItem("oldoolePetEnabled", "true");
+  localStorage.setItem("oldooleActualPetApplied", "true");
 }
-let petEnabled = localStorage.getItem("oldoolePetEnabled") === "true";
+let petEnabled = localStorage.getItem("oldoolePetEnabled") !== "false";
+let petState = loadPetState();
 const apiBase = ["chrome-extension:", "moz-extension:", "file:"].includes(location.protocol)
   ? "http://localhost:3000"
   : "";
+
+function clamp(value) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function loadPetState() {
+  const fallback = {
+    energy: 72,
+    focus: 64,
+    bond: 58,
+    mood: "idle",
+    lastSeen: Date.now()
+  };
+
+  try {
+    const saved = JSON.parse(localStorage.getItem("oldoolePetState") || "null");
+    if (!saved) return fallback;
+    const hoursAway = Math.min(18, Math.max(0, (Date.now() - (saved.lastSeen || Date.now())) / 3600000));
+    return {
+      energy: clamp((saved.energy ?? fallback.energy) - hoursAway * 2),
+      focus: clamp((saved.focus ?? fallback.focus) - hoursAway),
+      bond: clamp((saved.bond ?? fallback.bond) + hoursAway * .5),
+      mood: saved.mood || fallback.mood,
+      lastSeen: Date.now()
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function savePetState() {
+  localStorage.setItem("oldoolePetState", JSON.stringify({
+    ...petState,
+    lastSeen: Date.now()
+  }));
+}
+
+function updatePetPanel(mood = petState.mood) {
+  petState.mood = mood;
+  if (pet) pet.dataset.mood = mood;
+  if (petMoodLabel) petMoodLabel.textContent = mood;
+  if (petEnergy) {
+    petEnergy.value = Math.round(petState.energy);
+    petEnergy.setAttribute("value", String(Math.round(petState.energy)));
+  }
+  if (petFocus) {
+    petFocus.value = Math.round(petState.focus);
+    petFocus.setAttribute("value", String(Math.round(petState.focus)));
+  }
+  if (petBond) {
+    petBond.value = Math.round(petState.bond);
+    petBond.setAttribute("value", String(Math.round(petState.bond)));
+  }
+  savePetState();
+}
+
+function nudgePet(delta) {
+  petState.energy = clamp(petState.energy + (delta.energy || 0));
+  petState.focus = clamp(petState.focus + (delta.focus || 0));
+  petState.bond = clamp(petState.bond + (delta.bond || 0));
+  updatePetPanel(delta.mood || petState.mood);
+}
 
 function applyPetEnabled() {
   pet?.classList.toggle("is-hidden", !petEnabled);
@@ -38,12 +106,14 @@ function setPet(mood, face, message, hold = 2400) {
   pet.classList.add("is-speaking");
   petFace.textContent = face;
   petBubble.textContent = message;
+  updatePetPanel(mood);
 
   petTimer = window.setTimeout(() => {
     pet.classList.remove("is-speaking");
     if (mood !== "searching") {
       pet.dataset.mood = "idle";
       petFace.textContent = "404";
+      updatePetPanel("idle");
     }
   }, hold);
 }
@@ -71,6 +141,7 @@ function renderResults(items) {
 
   if (!items.length) {
     resultsBox.innerHTML = '<article class="widget"><p>No results came back from Apify.</p></article>';
+    nudgePet({ energy: -4, focus: -2, bond: 1, mood: "worried" });
     setPet("worried", "???", "no signals found");
     return;
   }
@@ -101,6 +172,7 @@ function runSearch(query) {
   if (activeEvents) activeEvents.close();
   resultsBox.innerHTML = "";
   setStatus("Starting search...");
+  nudgePet({ energy: -3, focus: 4, mood: "searching" });
   setPet("searching", "PING", `scanning "${query}"`, 999999);
 
   activeEvents = new EventSource(`${apiBase}/api/search?q=${encodeURIComponent(query)}`);
@@ -114,6 +186,7 @@ function runSearch(query) {
     const data = JSON.parse(event.data);
     setStatus(`Showing ${data.count} live Apify results for "${data.query}"`);
     renderResults(data.items);
+    nudgePet({ energy: -2, focus: 8, bond: 2, mood: "happy" });
     setPet("happy", "OK", `${data.count} results cached`);
     if (browserStatusText) browserStatusText.textContent = "Done";
   });
@@ -127,9 +200,11 @@ function runSearch(query) {
     if (event.data) {
       const data = JSON.parse(event.data);
       setStatus(data.message);
+      nudgePet({ energy: -5, focus: -4, bond: 1, mood: "error" });
       setPet("error", "ERR", data.message);
     } else {
       setStatus("The live search connection closed.");
+      nudgePet({ energy: -3, focus: -2, mood: "worried" });
       setPet("worried", "LOST", "connection closed");
     }
     activeEvents?.close();
@@ -258,15 +333,45 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeStartMenu();
 });
 
-pet?.addEventListener("click", () => {
+petSprite?.addEventListener("click", () => {
   const quips = [
-    ["idle", "404", "still here"],
-    ["happy", "BEEP", "old web, new tricks"],
-    ["worried", "404?", "try searching codex pet"],
-    ["idle", "ZZZ", "keeping watch"]
+    ["idle", "404", "still here", { bond: 1 }],
+    ["happy", "BEEP", "old web, new tricks", { bond: 2 }],
+    ["worried", "404?", "try searching codex pet", { focus: 1 }],
+    ["sleepy", "ZZZ", "keeping watch", { energy: 1 }]
   ];
-  const [mood, face, message] = quips[Math.floor(Math.random() * quips.length)];
+  const [mood, face, message, delta] = quips[Math.floor(Math.random() * quips.length)];
+  nudgePet({ ...delta, mood });
   setPet(mood, face, message);
+});
+
+pet?.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-pet-action]");
+  if (!actionButton) return;
+
+  const action = actionButton.dataset.petAction;
+  if (action === "snack") {
+    nudgePet({ energy: 12, bond: 5, focus: -2, mood: "happy" });
+    setPet("happy", "YUM", "packet crumbs acquired");
+    return;
+  }
+
+  if (action === "nap") {
+    nudgePet({ energy: 24, focus: 4, mood: "sleepy" });
+    setPet("sleepy", "ZZZ", "defrag nap started");
+    return;
+  }
+
+  if (action === "play") {
+    nudgePet({ energy: -9, bond: 12, focus: 2, mood: "happy" });
+    setPet("happy", "WHEE", "window chase mode");
+    return;
+  }
+
+  if (action === "debug") {
+    nudgePet({ energy: -8, focus: 16, bond: 3, mood: "focused" });
+    setPet("focused", "FIX", "sniffing stack traces");
+  }
 });
 
 petToggle?.addEventListener("click", () => {
@@ -276,4 +381,7 @@ petToggle?.addEventListener("click", () => {
   if (petEnabled) setPet("idle", "404", "back online");
 });
 
+window.addEventListener("beforeunload", savePetState);
+
 applyPetEnabled();
+updatePetPanel();

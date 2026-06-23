@@ -601,6 +601,10 @@ button {
   background: linear-gradient(#1a63d5, #0945ac);
 }
 
+.pet-toggle {
+  min-width: 104px;
+}
+
 .tray {
   margin-left: auto;
 }
@@ -611,18 +615,30 @@ button {
   bottom: 56px;
   z-index: 20;
   --pet-scale: .86;
+  width: 244px;
+  min-height: 136px;
+  image-rendering: pixelated;
+}
+
+.codex-pet.is-hidden {
+  display: none;
+}
+
+.pet-sprite {
+  position: absolute;
+  right: 0;
+  bottom: 0;
   width: 78px;
   height: 108px;
   border: 0;
   background: transparent;
   padding: 0;
-  image-rendering: pixelated;
   cursor: pointer;
   transform-origin: 50% 100%;
   animation: pet-idle 2.4s steps(2, end) infinite;
 }
 
-.codex-pet:focus-visible {
+.pet-sprite:focus-visible {
   outline: 2px dotted #fff;
   outline-offset: 6px;
 }
@@ -648,10 +664,87 @@ button {
 }
 
 .codex-pet.is-speaking .pet-bubble,
-.codex-pet:hover .pet-bubble,
-.codex-pet:focus-visible .pet-bubble {
+.pet-sprite:hover .pet-bubble,
+.pet-sprite:focus-visible .pet-bubble {
   opacity: 1;
   transform: translateY(0);
+}
+
+.pet-panel {
+  position: absolute;
+  right: 86px;
+  bottom: 0;
+  width: 158px;
+  border: 1px solid #0642a9;
+  border-radius: 5px 5px 0 0;
+  background: #ece9d8;
+  box-shadow:
+    1px 1px 0 #fff inset,
+    3px 3px 0 rgba(0, 0, 0, .25);
+  color: #1f1f1f;
+  font-size: 11px;
+  text-align: left;
+  opacity: .96;
+}
+
+.pet-panel header {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  color: #fff;
+  background: linear-gradient(#3aa1ff, #0050c8);
+  text-shadow: 1px 1px #003681;
+  font-size: 11px;
+}
+
+.pet-panel header span {
+  max-width: 82px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pet-stat {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px 0;
+  font: 700 10px "Courier New", monospace;
+}
+
+.pet-stat meter {
+  width: 100%;
+  height: 12px;
+}
+
+.pet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 7px 6px 6px;
+}
+
+.pet-actions button {
+  height: 22px;
+  border: 1px solid #919b9c;
+  border-right-color: #414141;
+  border-bottom-color: #414141;
+  background: linear-gradient(#fff, #d6d2bd);
+  color: #111;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.pet-actions button:hover {
+  background: linear-gradient(#fff, #ece5bf);
+}
+
+.pet-actions button:active {
+  border-color: #414141 #919b9c #919b9c #414141;
+  padding-top: 1px;
 }
 
 .pet-hanger {
@@ -765,7 +858,7 @@ button {
   right: 4px;
 }
 
-.codex-pet[data-mood="searching"] {
+.codex-pet[data-mood="searching"] .pet-sprite {
   animation: pet-working 520ms steps(2, end) infinite;
 }
 
@@ -780,7 +873,21 @@ button {
 }
 
 .codex-pet[data-mood="error"] {
+  animation: none;
+}
+
+.codex-pet[data-mood="error"] .pet-sprite {
   animation: pet-error 140ms steps(2, end) 6;
+}
+
+.codex-pet[data-mood="sleepy"] .pet-screen span {
+  color: #a6b7ff;
+  text-shadow: 0 0 4px #a6b7ff;
+}
+
+.codex-pet[data-mood="focused"] .pet-screen span {
+  color: #6fe8ff;
+  text-shadow: 0 0 4px #6fe8ff;
 }
 
 @keyframes pet-idle {
@@ -840,7 +947,13 @@ button {
     right: 9px;
     bottom: 42px;
     --pet-scale: .82;
+    width: 86px;
+    min-height: 108px;
     transform-origin: 100% 100%;
+  }
+
+  .pet-panel {
+    display: none;
   }
 
   .pet-bubble {
