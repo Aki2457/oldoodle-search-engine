@@ -10,6 +10,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 const token = process.env.APIFY_TOKEN;
 const actorId = process.env.APIFY_ACTOR_ID || "apify/google-search-scraper";
+const searchProvider = (process.env.SEARCH_PROVIDER || "duckduckgo").toLowerCase();
+const searchTimeoutMs = Number(process.env.SEARCH_TIMEOUT_MS || 5000);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
@@ -46,8 +48,28 @@ async function apify(pathname, options = {}) {
 function cleanText(value) {
   return String(value || "")
     .replace(/\u00c2/g, "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function decodeDuckDuckGoUrl(value) {
+  try {
+    const url = new URL(value, "https://duckduckgo.com");
+    const uddg = url.searchParams.get("uddg");
+    return uddg ? decodeURIComponent(uddg) : url.href;
+  } catch {
+    return value;
+  }
 }
 
 function normalizeItem(item) {
@@ -58,6 +80,156 @@ function normalizeItem(item) {
     type: cleanText(item.type || item.resultType || "result")
   };
 }
+
+async function duckDuckGoSearch(query) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), searchTimeoutMs);
+
+  try {
+    const url = new URL("https://html.duckduckgo.com/html/");
+    url.searchParams.set("q", query);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "accept": "text/html,application/xhtml+xml",
+        "user-agent": "OldoodleXP/1.0 (+https://github.com/Aki2457/oldoogle-xp-search)"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`DuckDuckGo request failed (${response.status})`);
+    }
+
+    const html = await response.text();
+    const blocks = html.split(/<div class="result results_links/i).slice(1);
+
+    return blocks.map((block) => {
+      const linkMatch = block.match(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+      if (!linkMatch) return null;
+
+      const snippetMatch = block.match(/<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i)
+        || block.match(/<div[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/div>/i);
+      const urlMatch = block.match(/<a[^>]+class="result__url"[^>]*>([\s\S]*?)<\/a>/i);
+
+      return normalizeItem({
+        title: cleanText(linkMatch[2]),
+        url: decodeDuckDuckGoUrl(cleanText(linkMatch[1])),
+        description: cleanText(snippetMatch?.[1] || ""),
+        type: cleanText(urlMatch?.[1] || "web")
+      });
+    }).filter(Boolean).slice(0, 12);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function apifySearch(query, sendStatus = () => {}) {
+  sendStatus({ message: "Dialing Apify..." });
+
+  const input = {
+    queries: query,
+    resultsPerPage: 10,
+    maxPagesPerQuery: 1,
+    countryCode: "us",
+    languageCode: "en",
+    mobileResults: false,
+    saveHtml: false,
+    saveHtmlToKeyValueStore: false
+  };
+
+  const run = await apify(`acts/${encodeURIComponent(actorId)}/runs`, {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+
+  const runId = run.data.id;
+  sendStatus({ message: "Search bot is running...", runId });
+
+  let finishedRun = run.data;
+  for (let attempt = 0; attempt < 90; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const current = await apify(`actor-runs/${runId}`);
+    finishedRun = current.data;
+    sendStatus({
+      message: `Apify status: ${finishedRun.status}`,
+      status: finishedRun.status
+    });
+
+    if (["SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"].includes(finishedRun.status)) {
+      break;
+    }
+  }
+
+  if (finishedRun.status !== "SUCCEEDED") {
+    throw new Error(`Actor ended with status ${finishedRun.status}`);
+  }
+
+  const datasetId = finishedRun.defaultDatasetId;
+  const dataset = await apify(`datasets/${datasetId}/items?clean=true`);
+  const items = Array.isArray(dataset) ? dataset.flatMap((entry) => {
+    if (Array.isArray(entry.organicResults)) return entry.organicResults;
+    if (Array.isArray(entry.results)) return entry.results;
+    return [entry];
+  }) : [];
+
+  return items.slice(0, 12).map(normalizeItem);
+}
+
+async function search(query, sendStatus = () => {}) {
+  if (searchProvider === "apify") {
+    return {
+      provider: "apify",
+      items: await apifySearch(query, sendStatus)
+    };
+  }
+
+  try {
+    sendStatus({ message: "Searching the fast index..." });
+    const items = await duckDuckGoSearch(query);
+    return { provider: "duckduckgo", items };
+  } catch (error) {
+    if (!token) throw error;
+    sendStatus({ message: "Fast index missed; falling back to Apify..." });
+    return {
+      provider: "apify",
+      items: await apifySearch(query, sendStatus)
+    };
+  }
+}
+
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    service: "oldoodle-search",
+    provider: searchProvider,
+    oldoodle: {
+      endpoint: "/api/search?q=windows+xp",
+      events: ["status", "results", "done"],
+      itemShape: ["title", "url", "description", "type"]
+    }
+  });
+});
+
+app.get("/api/search.json", async (req, res) => {
+  const query = String(req.query.q || "").trim();
+  if (!query) {
+    res.status(400).json({ error: "Missing search query" });
+    return;
+  }
+
+  try {
+    const result = await search(query);
+    res.json({
+      query,
+      provider: result.provider,
+      count: result.items.length,
+      items: result.items
+    });
+  } catch (error) {
+    res.status(502).json({ error: error.message });
+  }
+});
 
 app.get("/api/search", async (req, res) => {
   const query = String(req.query.q || "").trim();
@@ -72,58 +244,13 @@ app.get("/api/search", async (req, res) => {
   res.flushHeaders?.();
 
   try {
-    sendEvent(res, "status", { message: "Dialing Apify..." });
-
-    const input = {
-      queries: query,
-      resultsPerPage: 10,
-      maxPagesPerQuery: 1,
-      countryCode: "us",
-      languageCode: "en",
-      mobileResults: false,
-      saveHtml: false,
-      saveHtmlToKeyValueStore: false
-    };
-
-    const run = await apify(`acts/${encodeURIComponent(actorId)}/runs`, {
-      method: "POST",
-      body: JSON.stringify(input)
-    });
-
-    const runId = run.data.id;
-    sendEvent(res, "status", { message: "Search bot is running...", runId });
-
-    let finishedRun = run.data;
-    for (let attempt = 0; attempt < 90; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      const current = await apify(`actor-runs/${runId}`);
-      finishedRun = current.data;
-      sendEvent(res, "status", {
-        message: `Apify status: ${finishedRun.status}`,
-        status: finishedRun.status
-      });
-
-      if (["SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"].includes(finishedRun.status)) {
-        break;
-      }
-    }
-
-    if (finishedRun.status !== "SUCCEEDED") {
-      throw new Error(`Actor ended with status ${finishedRun.status}`);
-    }
-
-    const datasetId = finishedRun.defaultDatasetId;
-    const dataset = await apify(`datasets/${datasetId}/items?clean=true`);
-    const items = Array.isArray(dataset) ? dataset.flatMap((entry) => {
-      if (Array.isArray(entry.organicResults)) return entry.organicResults;
-      if (Array.isArray(entry.results)) return entry.results;
-      return [entry];
-    }) : [];
+    const result = await search(query, (status) => sendEvent(res, "status", status));
 
     sendEvent(res, "results", {
       query,
-      count: items.length,
-      items: items.slice(0, 12).map(normalizeItem)
+      provider: result.provider,
+      count: result.items.length,
+      items: result.items
     });
     sendEvent(res, "done", { ok: true });
   } catch (error) {

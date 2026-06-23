@@ -179,7 +179,7 @@ function renderResults(items) {
   resultsBox.innerHTML = "";
 
   if (!items.length) {
-    resultsBox.innerHTML = '<article class="widget"><p>No results came back from Apify.</p></article>';
+    resultsBox.innerHTML = '<article class="widget"><p>No results came back from the search engine.</p></article>';
     nudgePet({ energy: -4, focus: -2, bond: 1, mood: "worried" });
     setPet("worried", "???", "no signals found");
     return;
@@ -223,7 +223,7 @@ function runSearch(query) {
 
   activeEvents.addEventListener("results", (event) => {
     const data = JSON.parse(event.data);
-    setStatus(`Showing ${data.count} live Apify results for "${data.query}"`);
+    setStatus(`Showing ${data.count} live ${data.provider || "search"} results for "${data.query}"`);
     renderResults(data.items);
     nudgePet({ energy: -2, focus: 8, bond: 2, mood: "happy" });
     setPet("happy", "OK", `${data.count} results cached`);
